@@ -1,0 +1,19 @@
+*Apr  1 08:12:03.412: %SEC_LOGIN-5-LOGIN_SUCCESS: Login Success [user: admin] [Source: 192.168.1.10] [localport: 22] at 08:12:03 UTC Mon Apr 1 2026
+*Apr  1 08:14:45.128: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: admin] [Source: 203.0.113.45] [localport: 22] [Reason: Login Authentication Failed] at 08:14:45 UTC Mon Apr 1 2026
+*Apr  1 08:14:52.311: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: root] [Source: 203.0.113.45] [localport: 22] [Reason: Login Authentication Failed] at 08:14:52 UTC Mon Apr 1 2026
+*Apr  1 08:14:59.002: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: cisco] [Source: 203.0.113.45] [localport: 22] [Reason: Login Authentication Failed] at 08:14:59 UTC Mon Apr 1 2026
+*Apr  1 08:15:12.877: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: admin] [Source: 198.51.100.23] [localport: 23] [Reason: Invalid login] at 08:15:12 UTC Mon Apr 1 2026
+*Apr  1 08:16:03.201: %SEC-6-IPACCESSLOGP: list 101 denied tcp 45.77.12.9(51234) -> 10.0.0.1(22), 3 packets
+*Apr  1 08:18:11.540: %SYS-5-CONFIG_I: Configured from console by admin on vty0 (192.168.1.10)
+*Apr  1 08:20:41.019: %SEC_LOGIN-5-LOGIN_SUCCESS: Login Success [user: netadmin] [Source: 192.168.1.20] [localport: 22] at 08:20:41 UTC Mon Apr 1 2026
+*Apr  1 08:22:05.778: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: admin] [Source: 203.0.113.45] [localport: 22] [Reason: Login Authentication Failed] at 08:22:05 UTC Mon Apr 1 2026
+*Apr  1 08:22:19.334: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: admin] [Source: 203.0.113.45] [localport: 22] [Reason: Login Authentication Failed] at 08:22:19 UTC Mon Apr 1 2026
+*Apr  1 08:25:33.100: %SEC-6-IPACCESSLOGP: list 101 denied tcp 91.234.55.17(44321) -> 10.0.0.1(23), 5 packets
+*Apr  1 08:30:00.412: %SYS-5-CONFIG_I: Configured from console by netadmin on vty1 (192.168.1.20)
+*Apr  1 08:32:14.900: %SEC_LOGIN-5-LOGIN_SUCCESS: Login Success [user: admin] [Source: 10.10.10.5] [localport: 22] at 08:32:14 UTC Mon Apr 1 2026
+*Apr  1 08:40:55.678: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: guest] [Source: 185.220.101.42] [localport: 22] [Reason: Login Authentication Failed] at 08:40:55 UTC Mon Apr 1 2026
+*Apr  1 08:41:02.112: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: guest] [Source: 185.220.101.42] [localport: 22] [Reason: Login Authentication Failed] at 08:41:02 UTC Mon Apr 1 2026
+*Apr  1 08:45:22.450: %LINK-3-UPDOWN: Interface GigabitEthernet0/1, changed state to down
+*Apr  1 08:45:25.103: %LINK-3-UPDOWN: Interface GigabitEthernet0/1, changed state to up
+*Apr  1 08:50:10.774: %SEC_LOGIN-5-LOGIN_SUCCESS: Login Success [user: admin] [Source: 192.168.1.10] [localport: 22] at 08:50:10 UTC Mon Apr 1 2026
+
