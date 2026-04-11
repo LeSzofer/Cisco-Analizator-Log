@@ -255,8 +255,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "logs",
-        nargs="+",
-        help="Ścieżka(i) do pliku(ów) z logami Cisco IOS",
+        nargs="*",
+        default=["Sample_Logs/Cisco_ios.log"],
+        help="Ścieżka(i) do pliku(ów) z logami Cisco IOS (domyślnie: Sample_Logs/Cisco_ios.log)",
     )
     parser.add_argument(
         "--allowed",
