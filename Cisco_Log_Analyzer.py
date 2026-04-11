@@ -260,8 +260,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--allowed",
-        default="allowed_ips.txt",
-        help="Ścieżka do pliku z dozwolonymi IP/podsieciami (domyślnie: allowed_ips.txt)",
+        default="Allowed_IPS",
+        help="Ścieżka do pliku z dozwolonymi IP/podsieciami (domyślnie: Allowed_IPS)",
     )
     parser.add_argument(
         "--bf-threshold",
