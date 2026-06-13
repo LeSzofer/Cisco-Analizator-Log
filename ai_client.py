@@ -50,7 +50,7 @@ class AIClient:
                     headers={"Content-Type": "application/json"}
                 )
                 
-                with urllib.request.urlopen(req, timeout=30) as response:
+                with urllib.request.urlopen(req, timeout=180) as response:
                     res_data = json.loads(response.read().decode("utf-8"))
                     text = res_data["candidates"][0]["content"]["parts"][0]["text"]
                     return text
@@ -74,7 +74,7 @@ class AIClient:
                     headers={"Content-Type": "application/json"}
                 )
                 
-                with urllib.request.urlopen(req, timeout=30) as response:
+                with urllib.request.urlopen(req, timeout=180) as response:
                     res_data = json.loads(response.read().decode("utf-8"))
                     return res_data["message"]["content"]
 
@@ -100,7 +100,7 @@ class AIClient:
                     headers=headers
                 )
                 
-                with urllib.request.urlopen(req, timeout=30) as response:
+                with urllib.request.urlopen(req, timeout=180) as response:
                     res_data = json.loads(response.read().decode("utf-8"))
                     return res_data["choices"][0]["message"]["content"]
             
