@@ -34,3 +34,19 @@ INSERT INTO logs (device, log_line) VALUES
 ('Cisc_R2', '*Jun 10 08:50:10.774: %SEC_LOGIN-5-LOGIN_SUCCESS: Login Success [user: netadmin] [Source: 192.168.1.20] [localport: 22] at 08:50:10 UTC Tue Jun 10 2026'),
 ('Cisc_ER1', '*Jun 10 09:01:15.332: %SYS-5-CONFIG_I: Configured from console by admin on vty0 (192.168.1.10)'),
 ('Cisc_IR1', '*Jun 10 09:10:44.201: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet0/0, changed state to up');
+
+CREATE TABLE IF NOT EXISTS allowed_ips (
+    id          SERIAL PRIMARY KEY,
+    ip_or_net   VARCHAR(100) NOT NULL UNIQUE,
+    description VARCHAR(255),
+    created_at  TIMESTAMP    DEFAULT NOW()
+);
+
+-- Przykładowe dane startowe
+INSERT INTO allowed_ips (ip_or_net, description) VALUES
+('192.168.1.0/24', 'Sieć wewnętrzna biura'),
+('10.0.0.0/8', 'Infrastruktura główna'),
+('172.16.0.0/12', 'Sieć VPN dla administratorów'),
+('10.228.1.15', 'Serwer monitoringu NMS (Host)')
+ON CONFLICT (ip_or_net) DO NOTHING;
+

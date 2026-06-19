@@ -103,10 +103,55 @@ SYSTEM_CHAT = (
 )
 
 
-
 # ---------------------------------------------------------------------------
 # Analiza i agregacja wyników
 # ---------------------------------------------------------------------------
+
+
+def load_allowed_networks_from_db() -> list[Any]:
+    """Pobiera listę dozwolonych sieci z bazy PostgreSQL."""
+    import psycopg2
+    import ipaddress
+    networks = []
+
+    cfg = _STATE["db_config"]
+    dsn = (
+        f"dbname={cfg['dbname']} user={cfg['user']} "
+        f"password={cfg['password']} host={cfg['host']} port={cfg['port']}"
+    )
+
+    try:
+        conn = psycopg2.connect(dsn)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'allowed_ips'
+            );
+        """)
+        exists = cur.fetchone()[0]
+        if not exists:
+            cur.close()
+            conn.close()
+            return []
+
+        cur.execute("SELECT ip_or_net FROM allowed_ips ORDER BY id")
+        rows = cur.fetchall()
+        for row in rows:
+            val = row[0].strip()
+            if val:
+                try:
+                    networks.append(ipaddress.ip_network(val, strict=False))
+                except ValueError as ve:
+                    print(
+                        f"[!] Błąd parsowania IP/podsieci z bazy '{val}': {ve}")
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"[!] Błąd pobierania whitelisty z bazy danych: {e}")
+        return []
+
+    return networks
 
 
 def fetch_logs_from_db() -> AnalysisResult:
@@ -138,7 +183,13 @@ def run_analysis() -> dict[str, AnalysisResult]:
     results: dict[str, AnalysisResult] = {}
 
     if _STATE["use_db"]:
-        results["PostgreSQL: " + _STATE["db_config"]["dbname"]] = fetch_logs_from_db()
+        # Dynamiczne odświeżenie whitelisty z bazy danych
+        db_nets = load_allowed_networks_from_db()
+        if db_nets:
+            _STATE["allowed_networks"] = db_nets
+            _STATE["allowed_source"] = "database"
+        results["PostgreSQL: " + _STATE["db_config"]
+                ["dbname"]] = fetch_logs_from_db()
     else:
         for p in _STATE["log_paths"]:
             if p.exists():
@@ -193,7 +244,8 @@ def aggregate(results: dict[str, AnalysisResult]) -> dict[str, Any]:
 
     # Pobieramy wszystkie urządzenia z logów
     all_devices = set(e["device"] for e in events if e.get("device"))
-    anomalous_devices = detect_anomalies_kmeans(port_down_by_device, all_devices)
+    anomalous_devices = detect_anomalies_kmeans(
+        port_down_by_device, all_devices)
 
     targeted_users = Counter(
         e["user"] for e in events
@@ -639,7 +691,7 @@ def render_dashboard(stats: dict[str, Any]) -> str:
         },
         "top_failed": {
             "labels": [ip for ip, _ in stats["failed_by_ip"][:8]],
-            "data":   [c  for _, c in stats["failed_by_ip"][:8]],
+            "data":   [c for _, c in stats["failed_by_ip"][:8]],
         },
     }
 
@@ -824,10 +876,11 @@ def render_events(stats: dict[str, Any], query: dict[str, list[str]]) -> str:
             device_type = e.get("device_type", "cisco")
             dev_tag = f"<span class='device-tag {device_type}'>{device_type}</span> {html.escape(device_name)}"
             raw_text = e.get('raw') or ''
-            js_escaped_raw = raw_text.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", " ").replace("\r", " ")
-            
+            js_escaped_raw = raw_text.replace("\\", "\\\\").replace(
+                "'", "\\'").replace('"', '\\"').replace("\n", " ").replace("\r", " ")
+
             ai_btn = f"""<button class="btn-ai" onclick="openAiModal('{js_escaped_raw}')"><span>&#10024;</span> Analizuj</button>"""
-            
+
             rows_list.append(
                 f"<tr>"
                 f"<td class='mono'>{html.escape(timestamp)}</td>"
@@ -1270,29 +1323,37 @@ def render_chat() -> str:
 def render_about() -> str:
     ok_tag = "<span class='tag ok'>OK</span>"
     missing_tag = "<span class='tag bad'>MISSING</span>"
-    log_list = "".join(
-        f"<li class='mono'>{html.escape(str(p))} "
-        f"{ok_tag if p.exists() else missing_tag}"
-        f"</li>"
-        for p in _STATE["log_paths"]
-    ) or "<li class='empty'>Brak skonfigurowanych plików</li>"
+
+    if _STATE["use_db"]:
+        log_list = "<li class='mono'>Baza danych PostgreSQL: <b>" + \
+            html.escape(_STATE["db_config"]["dbname"]) + "</b></li>"
+    else:
+        log_list = "".join(
+            f"<li class='mono'>{html.escape(str(p))} "
+            f"{ok_tag if p.exists() else missing_tag}"
+            f"</li>"
+            for p in _STATE["log_paths"]
+        ) or "<li class='empty'>Brak skonfigurowanych plików</li>"
 
     allowed = _STATE["allowed_networks"]
     allowed_list = "".join(
         f"<li class='mono'>{html.escape(str(n))}</li>" for n in allowed
     ) or "<li class='empty'>Brak (każde IP traktowane jako 'spoza listy')</li>"
 
+    source_label = "Baza danych (tabela allowed_ips)" if _STATE.get(
+        "allowed_source") == "database" else f"Plik: {html.escape(str(_STATE['allowed_path']))}"
+
     body = f"""
     <div class="grid two">
       <div class="card">
-        <h2>Skonfigurowane pliki logów</h2>
+        <h2>Skonfigurowane źródła logów</h2>
         <ul>{log_list}</ul>
         <div class="small">Analiza uruchamiana na żądanie przy każdym odświeżeniu.</div>
       </div>
       <div class="card">
         <h2>Whitelista (Allowed IPs)</h2>
-        <div class="small">Plik: {html.escape(str(_STATE['allowed_path']))}</div>
-        <ul>{allowed_list}</ul>
+        <div class="small">Źródło: <b>{source_label}</b></div>
+        <ul style="max-height: 250px; overflow-y: auto;">{allowed_list}</ul>
       </div>
     </div>
     <div class="card" style="margin-top:16px">
@@ -1398,16 +1459,16 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 params = parse_qs(body)
                 data = {k: v[0] for k, v in params.items()}
-            
+
             provider = data.get("provider", "ollama")
             api_url = data.get("api_url", "")
             model = data.get("model", "")
             api_key = data.get("api_key", "")
-            
+
             # Jeśli wprowadzono masked key lub puste, nie nadpisuj
             if api_key == "************" or not api_key:
                 api_key = _STATE["ai_config"]["api_key"]
-                
+
             _STATE["ai_config"] = {
                 "provider": provider,
                 "api_url": api_url,
@@ -1415,9 +1476,10 @@ class Handler(BaseHTTPRequestHandler):
                 "api_key": api_key
             }
             AIClient.set_config(_STATE["ai_config"])
-            
+
             if 'application/json' in content_type:
-                self._send_json({"success": True, "message": "Konfiguracja zapisana."})
+                self._send_json(
+                    {"success": True, "message": "Konfiguracja zapisana."})
             else:
                 self.send_response(303)
                 self.send_header("Location", "/settings")
@@ -1426,15 +1488,15 @@ class Handler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length).decode('utf-8')
             data = json.loads(body)
-            
+
             provider = data.get("provider", "ollama")
             api_url = data.get("api_url", "")
             model = data.get("model", "")
             api_key = data.get("api_key", "")
-            
+
             if api_key == "************" or not api_key:
                 api_key = _STATE["ai_config"]["api_key"]
-                
+
             old_config = _STATE["ai_config"]
             _STATE["ai_config"] = {
                 "provider": provider,
@@ -1443,14 +1505,17 @@ class Handler(BaseHTTPRequestHandler):
                 "api_key": api_key
             }
             AIClient.set_config(_STATE["ai_config"])
-            
+
             try:
                 test_prompt = "Say only: 'NMS assistant connection success!'"
-                response = AIClient.generate(test_prompt, system_instruction="Odpowiedz krótko i po angielsku.")
+                response = AIClient.generate(
+                    test_prompt, system_instruction="Odpowiedz krótko i po angielsku.")
                 if "connection success" in response.lower() or len(response.strip()) > 0:
-                    self._send_json({"success": True, "message": f"LLM odpowiedział poprawnie: {html.escape(response[:100])}"})
+                    self._send_json(
+                        {"success": True, "message": f"LLM odpowiedział poprawnie: {html.escape(response[:100])}"})
                 else:
-                    self._send_json({"success": False, "error": f"LLM zwrócił nieoczekiwaną odpowiedź: {response}"})
+                    self._send_json(
+                        {"success": False, "error": f"LLM zwrócił nieoczekiwaną odpowiedź: {response}"})
             except Exception as e:
                 self._send_json({"success": False, "error": str(e)})
             finally:
@@ -1461,24 +1526,27 @@ class Handler(BaseHTTPRequestHandler):
             body = self.rfile.read(content_length).decode('utf-8')
             data = json.loads(body)
             log_line = data.get("log_line", "")
-            
+
             if not log_line:
-                self._send_json({"error": "Brak wpisu logu do przeanalizowania."}, status=400)
+                self._send_json(
+                    {"error": "Brak wpisu logu do przeanalizowania."}, status=400)
                 return
-                
+
             try:
-                analysis = AIClient.generate(log_line, system_instruction=SYSTEM_EXPLAIN)
+                analysis = AIClient.generate(
+                    log_line, system_instruction=SYSTEM_EXPLAIN)
                 self._send_json({"analysis": analysis})
             except Exception as e:
                 self._send_json({"error": str(e)}, status=500)
         elif route == "/api/ai-summary":
             try:
                 stats = aggregate(run_analysis())
-                brute_force_ips = [ip for ip, _ in stats.get("brute_force_suspects", [])]
+                brute_force_ips = [ip for ip, _ in stats.get(
+                    "brute_force_suspects", [])]
                 unknown_ips = stats.get("unknown_ips", [])
                 top_failed = stats.get("failed_by_ip", [])[:5]
                 top_users = stats.get("targeted_users", [])[:5]
-                
+
                 stats_prompt = (
                     f"Oto podsumowanie statystyk z ostatniego skanowania:\n"
                     f"- Łącznie zdarzeń: {stats.get('total_events', 0)}\n"
@@ -1491,8 +1559,9 @@ class Handler(BaseHTTPRequestHandler):
                     f"- Najczęstsze źródła nieudanych logowań: {top_failed}\n"
                     f"- Najczęściej atakowane konta użytkowników: {top_users}\n"
                 )
-                
-                analysis = AIClient.generate(stats_prompt, system_instruction=SYSTEM_SUMMARY)
+
+                analysis = AIClient.generate(
+                    stats_prompt, system_instruction=SYSTEM_SUMMARY)
                 self._send_json({"analysis": analysis})
             except Exception as e:
                 self._send_json({"error": str(e)}, status=500)
@@ -1502,11 +1571,11 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(body)
             message = data.get("message", "")
             history = data.get("history", [])
-            
+
             if not message:
                 self._send_json({"error": "Pusta wiadomość."}, status=400)
                 return
-                
+
             try:
                 stats = aggregate(run_analysis())
                 recent_events = stats.get("events", [])[:15]
@@ -1514,7 +1583,7 @@ class Handler(BaseHTTPRequestHandler):
                     f"[{e.get('timestamp') or '-'}] {e.get('device', '-')}({e.get('device_type', 'cisco')}): {e.get('raw', '')}"
                     for e in recent_events
                 )
-                
+
                 context = (
                     f"Statystyki NMS:\n"
                     f"- Łącznie linii logów: {stats.get('total_lines', 0)}\n"
@@ -1524,10 +1593,10 @@ class Handler(BaseHTTPRequestHandler):
                     f"Ostatnie 15 zdarzeń w logach:\n"
                     f"{recent_events_str}"
                 )
-                
+
                 system_instruction = SYSTEM_CHAT.format(context=context)
                 prompt = message
-                
+
                 if history:
                     history_list = []
                     for h in history[-8:]:
@@ -1535,8 +1604,9 @@ class Handler(BaseHTTPRequestHandler):
                         history_list.append(f"{role}: {h['content']}")
                     history_text = "\n".join(history_list)
                     prompt = f"Oto historia poprzedniej rozmowy:\n{history_text}\n\nNajnowsza wiadomość od Użytkownika:\n{message}"
-                
-                reply = AIClient.generate(prompt, system_instruction=system_instruction)
+
+                reply = AIClient.generate(
+                    prompt, system_instruction=system_instruction)
                 self._send_json({"reply": reply})
             except Exception as e:
                 self._send_json({"error": str(e)}, status=500)
@@ -1603,7 +1673,6 @@ def main(argv: list[str] | None = None) -> int:
     log_args = args.log or ["Sample_Logs/Cisco_ios.log"]
     _STATE["log_paths"] = [Path(p) for p in log_args]
     _STATE["allowed_path"] = Path(args.allowed)
-    _STATE["allowed_networks"] = load_allowed_networks(_STATE["allowed_path"])
     _STATE["bf_threshold"] = args.bf_threshold
     _STATE["port_failure_threshold"] = args.port_failure_threshold
 
@@ -1617,11 +1686,25 @@ def main(argv: list[str] | None = None) -> int:
         "password": args.db_password,
     }
 
+    _STATE["allowed_source"] = "file"
+    if _STATE["use_db"]:
+        db_nets = load_allowed_networks_from_db()
+        if db_nets:
+            _STATE["allowed_networks"] = db_nets
+            _STATE["allowed_source"] = "database"
+        else:
+            _STATE["allowed_networks"] = load_allowed_networks(
+                _STATE["allowed_path"])
+    else:
+        _STATE["allowed_networks"] = load_allowed_networks(
+            _STATE["allowed_path"])
+
     # Inicjalizacja konfiguracji AI
     AIClient.set_config(_STATE["ai_config"])
 
-    if args.db:
-        print(f"[i] Tryb bazy danych: {args.db_name}@{args.db_host}:{args.db_port}")
+    if _STATE["use_db"]:
+        print(
+            f"[i] Tryb bazy danych: {args.db_name}@{args.db_host}:{args.db_port}")
     else:
         missing = [p for p in _STATE["log_paths"] if not p.exists()]
         if missing:
@@ -1631,12 +1714,19 @@ def main(argv: list[str] | None = None) -> int:
     httpd = HTTPServer((args.host, args.port), Handler)
     url = f"http://{args.host}:{args.port}"
     print(f"[i] Cisco Log NMS dashboard uruchomiony: {url}")
-    if args.db:
+    if _STATE["use_db"]:
         print(f"[i] Źródło danych: PostgreSQL ({args.db_name})")
     else:
-        print(f"[i] Analizowane pliki: {', '.join(str(p) for p in _STATE['log_paths'])}")
-    print(f"[i] Whitelista: {_STATE['allowed_path']} "
-          f"({len(_STATE['allowed_networks'])} wpisów)")
+        print(
+            f"[i] Analizowane pliki: {', '.join(str(p) for p in _STATE['log_paths'])}")
+
+    if _STATE["allowed_source"] == "database":
+        print(f"[i] Whitelista: Baza danych PostgreSQL (tabela allowed_ips) "
+              f"({len(_STATE['allowed_networks'])} wpisów)")
+    else:
+        print(f"[i] Whitelista: {_STATE['allowed_path']} "
+              f"({len(_STATE['allowed_networks'])} wpisów)")
+
     print("[i] Zatrzymanie: Ctrl+C")
     try:
         httpd.serve_forever()

@@ -399,8 +399,52 @@ def main() -> None:
         )
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_logs_device ON logs(device)")
+    
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS allowed_ips (
+            id          SERIAL PRIMARY KEY,
+            ip_or_net   VARCHAR(100) NOT NULL UNIQUE,
+            description VARCHAR(255),
+            created_at  TIMESTAMP    DEFAULT NOW()
+        )
+    """)
     conn.commit()
-    print("[+] Tabela 'logs' utworzona.")
+    print("[+] Tabele 'logs' oraz 'allowed_ips' zostały utworzone.")
+
+    # Seeding allowed_ips z pliku lub wartości domyślnych
+    from pathlib import Path
+    allowed_ips_to_seed = []
+    allowed_file = Path("Allowed_IPS")
+    if allowed_file.exists():
+        try:
+            for line in allowed_file.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                allowed_ips_to_seed.append((line, "Zaimportowane z pliku Allowed_IPS"))
+        except Exception as e:
+            print(f"[!] Błąd odczytu pliku Allowed_IPS podczas seedowania: {e}")
+            
+    if not allowed_ips_to_seed:
+        allowed_ips_to_seed = [
+            ("192.168.1.0/24", "Sieć wewnętrzna biura"),
+            ("10.0.0.0/8", "Infrastruktura główna"),
+            ("172.16.0.0/12", "Sieć VPN dla administratorów"),
+            ("10.228.1.15", "Serwer monitoringu NMS (Host)"),
+        ]
+
+    for ip_or_net, desc in allowed_ips_to_seed:
+        try:
+            cur.execute(
+                "INSERT INTO allowed_ips (ip_or_net, description) VALUES (%s, %s) "
+                "ON CONFLICT (ip_or_net) DO NOTHING",
+                (ip_or_net, desc)
+            )
+        except Exception as e:
+            print(f"[!] Błąd wstawiania do allowed_ips: {e}")
+    conn.commit()
+    print(f"[+] Whitelista zainicjowana w bazie ({len(allowed_ips_to_seed)} wpisów).")
+
 
     # ---- Generowanie logów ----
     pool = build_weighted_generators()
