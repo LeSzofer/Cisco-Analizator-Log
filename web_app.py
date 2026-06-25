@@ -13,9 +13,8 @@ Funkcje:
   - JSON API pod /api/stats do integracji lub auto-odświeżania.
 
 Uruchomienie:
-    python web_app.py
-    python web_app.py --log Sample_Logs/Cisco_ios.log
-    python web_app.py --log Sample_Logs/Cisco_ios.log --port 8080 --host 0.0.0.0
+    python web_app.py --db
+
 
 Po uruchomieniu otwórz w przeglądarce: http://127.0.0.1:8000
 """

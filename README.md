@@ -139,7 +139,7 @@ python web_app.py --no-db --log Sample_Logs/Cisco_ios.log --port 8080
 
 Tradycyjne systemy NMS opierają się na sztywnych progach liczbowych (np. *"flaguj urządzenie, gdy awaria portu wystąpi >= 5 razy"*). Taka metoda generuje fałszywe alarmy w dużych sieciach lub pomija incydenty w małych oddziałach. 
 
-Nasze rozwiązanie wykorzystuje **jednowymiarowy algorytm K-Means (dla K=2)** w celu automatycznego podziału floty urządzeń sieciowych na dwie niezależne grupy:
+Moje rozwiązanie wykorzystuje **jednowymiarowy algorytm K-Means (dla K=2)** w celu automatycznego podziału floty urządzeń sieciowych na dwie niezależne grupy:
 1. **Grupa stabilna (`g0`)**: Urządzenia o znikomej, dopuszczalnej liczbie awarii interfejsów (np. 0-3 awarie w okresie analizy).
 2. **Grupa anomalna (`g1`)**: Urządzenia, których liczba awarii interfejsów znacząco odbiega od tła reszty infrastruktury.
 
